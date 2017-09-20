@@ -9,6 +9,9 @@ const flash = require('connect-flash')
 const passport = require('passport')
 const GoogleStrategy = require('passport-google-oauth20').Strategy
 const GitHubStrategy = require('passport-github').Strategy
+const FacebookStrategy = require('passport-facebook').Strategy
+const NaverStrategy = require('passport-naver').Strategy
+
 
 const util = require('./util')
 const query = require('./query')
@@ -88,6 +91,42 @@ passport.use(new GoogleStrategy({
   })
 }))
 
+passport.use(new FacebookStrategy({
+  clientID: process.env.FACEBOOK_CLIENT_ID,
+  clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+  callbackURL: process.env.FACEBOOK_CALLBACK_URL
+}, (accessToken, refreshToken, profile, done) => {
+  const avatar_url = profile.photos[0] ? profile.photos[0].value : null
+  query.firstOrCreateUserByProvider(
+    'facebook',
+    profile.id,
+    accessToken,
+    avatar_url
+  ).then(user => {
+    done(null, user)
+  }).catch(err => {
+    done(err)
+  })
+}))
+
+passport.use(new NaverStrategy({
+  clientID: process.env.NAVER_CLIENT_ID,
+  clientSecret: process.env.NAVER_CLIENT_SECRET,
+  callbackURL: process.env.NAVER_CALLBACK_URL
+}, (accessToken, refreshToken, profile, done) => {
+  const avatar_url = profile._json.profile_image ? profile._json.profile_image : null
+  query.firstOrCreateUserByProvider(
+    'naver',
+    profile.id,
+    accessToken,
+    avatar_url
+  ).then(user => {
+    done(null, user)
+  }).catch(err => {
+    done(err)
+  })
+}))
+
 app.get('/', mw.loginRequired, (req, res) => {
   res.render('index.pug', req.user)
 })
@@ -115,6 +154,25 @@ passport.authenticate('google', {
 }))
 
 app.get('/auth/google/callback', passport.authenticate('google', {
+  successRedirect: '/',
+  failureRedirect: '/login',
+  failureFlash: true
+}))
+
+app.get('/auth/facebook', passport.authenticate('facebook'));
+
+app.get('/auth/facebook/callback', passport.authenticate('facebook', {
+  successRedirect: '/',
+  failureRedirect: '/login',
+  failureFlash: true
+}))
+
+app.get('/auth/naver',
+passport.authenticate('naver', {
+  scope: ['profile']
+}))
+
+app.get('/auth/naver/callback', passport.authenticate('naver', {
   successRedirect: '/',
   failureRedirect: '/login',
   failureFlash: true
