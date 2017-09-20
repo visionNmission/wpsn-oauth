@@ -7,6 +7,7 @@ const cookieSession = require('cookie-session')
 const csurf = require('csurf')
 const flash = require('connect-flash')
 const passport = require('passport')
+const GoogleStrategy = require('passport-google-oauth20').Strategy
 const GitHubStrategy = require('passport-github').Strategy
 
 const util = require('./util')
@@ -56,10 +57,30 @@ passport.use(new GitHubStrategy({
   clientSecret: process.env.GITHUB_CLIENT_SECRET,
   callbackURL: process.env.GITHUB_CALLBACK_URL
 }, (accessToken, refreshToken, profile, done) => {
+  const avatar_url = profile.photos[0] ? profile.photos[0].value : null
   query.firstOrCreateUserByProvider(
     'github',
     profile.id,
-    accessToken
+    accessToken,
+    avatar_url
+  ).then(user => {
+    done(null, user)
+  }).catch(err => {
+    done(err)
+  })
+}))
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL
+}, (accessToken, refreshToken, profile, done) => {
+  const avatar_url = profile.photos[0] ? profile.photos[0].value : null
+  query.firstOrCreateUserByProvider(
+    'google',
+    profile.id,
+    accessToken,
+    avatar_url
   ).then(user => {
     done(null, user)
   }).catch(err => {
@@ -88,6 +109,16 @@ app.get('/auth/github/callback', passport.authenticate('github', {
   failureFlash: true
 }))
 
+app.get('/auth/google',
+passport.authenticate('google', {
+  scope: ['profile']
+}))
+
+app.get('/auth/google/callback', passport.authenticate('google', {
+  successRedirect: '/',
+  failureRedirect: '/login',
+  failureFlash: true
+}))
 
 app.listen(PORT, () => {
   console.log(`listening ${PORT}...`)
